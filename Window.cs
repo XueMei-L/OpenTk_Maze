@@ -21,27 +21,13 @@ public string levelFilePath {get; set;}
 private Level _level=new Level();
 
 private bool bDrawCollision=false;
-    public Window(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
-    : base(gameWindowSettings,nativeWindowSettings)
-    {
-                levelFilePath="assets/level.json";
-        AssetCollection=new Dictionary<string,Mesh>();
-
-        // Monitor and resolution
-        MonitorInfo minfo = Monitors.GetMonitorFromWindow(this);
-        _horizontalResolution=minfo.HorizontalResolution;
-        _verticalResolution=minfo.VerticalResolution;
-	//_camera=new Camera(Vector3.UnitZ*3,Size.X / (float)Size.Y); 
-	Console.WriteLine($"Hor {_horizontalResolution} Vert {_verticalResolution}");
-	_camera=new Camera(new Vector3(0.0f, 15.0f, 35.0f), _horizontalResolution / (float)_verticalResolution);
-	_camera.Yaw = -90.0f;
-	_camera.Pitch = -20.0f;
-
-
-        _controller=new Controller(_horizontalResolution,_verticalResolution);
-        _controller.Speed=5.0f;
-  
-    }
+private Vector3 _pawnPosition = Vector3.Zero;
+private Vector3 _pawnScale = new Vector3(0.2f);
+private float _pawnYaw = 0.0f;
+private float _pawnCameraDistance = 1.0f;
+private float _pawnCameraHeight = 0.7f;
+// inicialmente esta frente de la entrada del laberinto
+private float _pawnModelYawOffset = 270.0f; // visual rotation offset for the pawn model (90 + 180)
 
 // 15x15 的迷宫矩阵映射 (根据你的迷宫图片完全一比一像素化还原)
 // 1 = 墙壁 Cube，0 = 可以行走的通道
@@ -64,9 +50,43 @@ private int[,] mazeGrid = new int[15, 15]
     {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}  // 底层外墙
 };
 
+    public Window(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
+    : base(gameWindowSettings,nativeWindowSettings)
+    {
+                levelFilePath="assets/level.json";
+        AssetCollection=new Dictionary<string,Mesh>();
+
+        // Monitor and resolution
+        MonitorInfo minfo = Monitors.GetMonitorFromWindow(this);
+        _horizontalResolution=minfo.HorizontalResolution;
+        _verticalResolution=minfo.VerticalResolution;
+
+        //_camera=new Camera(Vector3.UnitZ*3,Size.X / (float)Size.Y); 
+        Console.WriteLine($"Hor {_horizontalResolution} Vert {_verticalResolution}");
+        _camera=new Camera(new Vector3(0.0f, 15.0f, 35.0f), _horizontalResolution / (float)_verticalResolution);
+        _camera.Yaw = -90.0f;
+        _camera.Pitch = -20.0f;
+
+        _controller=new Controller(_horizontalResolution,_verticalResolution);
+        _controller.Speed=5.0f;
+  
+    }
+
 float cubeSize = 2.0f; // 每个方块的基准大小
 
 private Vector3 MazeOrigin => new Vector3(-cubeSize * 7.0f, 0.0f, -cubeSize * 7.0f);
+
+private Actor CreateMazeCubeWall(Vector3 position)
+{
+    Actor wall = new Actor();
+    wall.Enabled = true;
+    wall.StaticMeshId = "cube";
+    wall.CollisionMeshId = "col_cube";
+    wall.SetTransform(position, new Vector3(0.0f, 1.0f, 0.0f), 0.0f, new Vector3(1.0f, 1.0f, 1.0f));
+    wall.SetCollisionGeometry(AssetCollection);
+    wall.UpdateCollisionModel();
+    return wall;
+}
 
 private void BuildMazeFromGrid()
 {
@@ -81,45 +101,78 @@ private void BuildMazeFromGrid()
                 continue;
 
             string wallId = $"wall_{row}_{col}";
-            Actor wall = new Actor();
-            wall.Enabled = true;
-            wall.StaticMeshId = "cube";
-            wall.CollisionMeshId = "col_cube";
             Vector3 position = new Vector3(
                 MazeOrigin.X + col * cubeSize,
                 0.0f,
                 MazeOrigin.Z + row * cubeSize);
-            wall.SetTransform(position, new Vector3(0.0f, 1.0f, 0.0f), 0.0f, new Vector3(1.0f, 1.0f, 1.0f));
-            wall.SetCollisionGeometry(AssetCollection);
-            wall.UpdateCollisionModel();
-            _level.ActorCollection.Add(wallId, wall);
+            _level.ActorCollection.Add(wallId, CreateMazeCubeWall(position));
         }
     }
 
-    if (_level.ActorCollection.TryGetValue("apawn", out Actor? pawn))
+        if (_level.ActorCollection.TryGetValue("apawn", out Actor? pawn))
     {
-        // Spawn outside the left entrance at row 6, a bit farther out and rotated right to face the entrance
-        Vector3 startPosition = new Vector3(MazeOrigin.X - 3.0f * cubeSize, 0.0f, MazeOrigin.Z + 5 * cubeSize);
-        pawn.SetTransform(startPosition, new Vector3(0.0f, 1.0f, 0.0f), -90.0f, new Vector3(0.25f, 0.25f, 0.25f));
+        // Spawn outside the left entrance at row 5, facing into the maze
+        _pawnPosition = new Vector3(MazeOrigin.X - 3.0f * cubeSize, 0.0f, MazeOrigin.Z + 5 * cubeSize);
+        _pawnYaw = 0.0f;
+            pawn.SetTransform(_pawnPosition, new Vector3(0.0f, 1.0f, 0.0f), _pawnYaw + _pawnModelYawOffset, _pawnScale);
         pawn.UpdateCollisionModel();
     }
 }
 
 protected void UpdateGameState(float deltaTime){
-    
-    // Camera free movement
     Vector3 movement=_controller.GetMovement();
-
     Angles2D deltaAngles=_controller.GetArmOrientation();
-    Angles2D cameraAngles = new Angles2D(_camera.Yaw,_camera.Pitch);
-    cameraAngles += deltaAngles;
-    _camera.Yaw = (float)cameraAngles.Yaw;
-    _camera.Pitch = (float)cameraAngles.Pitch;
 
-    _camera.Position += _camera.Front*movement.X;
-    _camera.Position += _camera.Right*movement.Y;
-    _camera.Position += _camera.Up*movement.Z;
+    if (_level.ActorCollection.TryGetValue("apawn", out Actor? pawn))
+    {
+        _pawnYaw += (float)deltaAngles.Yaw;
+        _pawnYaw = MathF.IEEERemainder(_pawnYaw, 360.0f);
 
+        float yawRad = MathHelper.DegreesToRadians(_pawnYaw);
+        Vector3 pawnForward = new Vector3(MathF.Cos(yawRad), 0.0f, MathF.Sin(yawRad));
+        Vector3 pawnRight = new Vector3(MathF.Cos(yawRad + MathHelper.PiOver2), 0.0f, MathF.Sin(yawRad + MathHelper.PiOver2));
+
+        Vector3 previousPawnPosition = _pawnPosition;
+        float previousPawnYaw = _pawnYaw;
+
+        _pawnPosition += pawnForward * movement.X;
+        _pawnPosition += pawnRight * movement.Y;
+
+        pawn.SaveModel();
+        pawn.SetTransform(_pawnPosition, new Vector3(0.0f, 1.0f, 0.0f), _pawnYaw + _pawnModelYawOffset, _pawnScale);
+        pawn.UpdateCollisionModel();
+
+        foreach(string actorid in _level.ActorCollection.Keys)
+        {
+            if(actorid == "apawn")
+                continue;
+
+            Actor actor = _level.ActorCollection[actorid];
+            if(!actor.Enabled)
+                continue;
+
+            if (Collision.CheckEB(pawn, actor))
+            {
+                pawn.RestoreModel();
+                pawn.UpdateCollisionModel();
+                _pawnPosition = previousPawnPosition;
+                _pawnYaw = previousPawnYaw;
+                break;
+            }
+        }
+
+        // Position the camera behind-and-above the pawn (local back offset), and orient it to look at the pawn
+        Vector3 camPos = _pawnPosition - pawnForward * _pawnCameraDistance + new Vector3(0.0f, _pawnCameraHeight, 0.0f);
+        _camera.Position = camPos;
+
+        Vector3 toPawn = _pawnPosition - camPos;
+        float distXZ = MathF.Sqrt(toPawn.X * toPawn.X + toPawn.Z * toPawn.Z);
+        float pitchDeg = MathHelper.RadiansToDegrees(MathF.Atan2(toPawn.Y, distXZ));
+        float yawDeg = MathHelper.RadiansToDegrees(MathF.Atan2(toPawn.Z, toPawn.X));
+
+        _camera.Yaw = yawDeg;
+        _camera.Pitch = pitchDeg;
+    }
 }
 
 protected void InitializeLevel()
@@ -354,18 +407,12 @@ protected override void OnResize(ResizeEventArgs e)
 
         base.OnUnload();
 }
-private Shader? _shader ;
+    private Shader? _shader ;
     
 	private Camera _camera;
-
-    
     
     private Controller _controller;
     private int _horizontalResolution;
     private int _verticalResolution;
-
-
-
-
 
 }

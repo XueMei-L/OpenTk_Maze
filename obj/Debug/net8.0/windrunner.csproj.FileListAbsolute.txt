@@ -254,3 +254,4 @@ C:\Users\linyouzi\Desktop\Materiales Clase 6-proyecto de partida con colision\te
 C:\Users\linyouzi\Desktop\Materiales Clase 6-proyecto de partida con colision\texturas_tutorial\obj\Debug\net8.0\windrunner.pdb
 C:\Users\linyouzi\Desktop\Materiales Clase 6-proyecto de partida con colision\texturas_tutorial\obj\Debug\net8.0\windrunner.genruntimeconfig.cache
 C:\Users\linyouzi\Desktop\Materiales Clase 6-proyecto de partida con colision\texturas_tutorial\obj\Debug\net8.0\ref\windrunner.dll
+C:\Users\linyouzi\Desktop\Materiales Clase 6-proyecto de partida con colision\texturas_tutorial\obj\Debug\net8.0\windrunner.sourcelink.json
