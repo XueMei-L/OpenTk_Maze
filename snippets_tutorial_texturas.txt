@@ -1,0 +1,371 @@
+// Ejemplo de material en json
+// Se generara por el exportador en los json de las mallas
+// en la lista de materiales. Es necesario definir una custom 
+// property en el material que va a utilizarse para la textura
+// con el nombre texture_id y el valor un identificador unico 
+// para la textura
+    {
+      "name": "Material.009",
+      "diffuse_color": [
+        0.8000074625015259,
+        0.012106496840715408,
+        0.017863882705569267,
+        1.0
+      ],
+      "texture_id": "dragon"
+    }
+
+// Por su parte el archivo level.json tiene que tener en la 
+// lista de texturas una con el identificado corespondiente
+// si no es as'i se producir'a un error en la carga
+
+    "texture_list" : [
+
+        {
+            "file" : "assets/greendragon.jpg",
+            "id" : "dragon"
+        }
+
+
+    ],
+
+// Por lo tanto en Retrieved.cs hay que modificar la clase
+// RetrievedMaterial
+
+
+public class RetrievedMaterial {
+    public string name {get; init;} = "Unknown";
+    public float[] diffuse_color {get; init;} = {1.0f,1.0f,1.0f,1.0f};
+    public string texture_id {get; init;}="";
+
+}
+
+// En Retrieved.cs hay que incluir una nueva clase para contener
+// la meta informaci'on de la textura (id y ruta al archivo)
+
+public class RetrievedTextureMeta {
+        public string file {get; init;}="Unknown";
+        public string id{get; init;}="Unknown";
+}
+
+// En la clase RetrievedLevel hay que inclur una nueva propiedad
+
+public RetrievedTextureMeta[] texture_list {get; init;}= new RetrievedTextureMeta[0];
+
+// La inclusi'on de las texturas es un nuevo asset. 
+// Hasta ahora solo ten'iamos las mallas. Las guardabamos en un
+// Dictionary<string,Mesh> pero ahora tenemos dos tipos de Assets
+// mallas y texturas. Vamos a generalizar por tanto esto. Comenzamos
+// incluyendo un nuevo archivo Asset.cs con la clase Asset que 
+// representar'a un Asset general:
+
+public class Asset {
+
+	public enum Type {
+
+		Generic,
+		Mesh,
+		Texture
+
+	}
+
+	 public Type type {get; private set; } = Type.Generic;
+
+	 public Asset()
+	{
+
+	}
+
+	public Asset(Type type)
+	{
+		this.type=type;
+	}
+
+
+}
+
+// Ahora en Mesh.cs debemos cambiar la declaraci'on de la clase a
+
+public class Mesh : Asset
+{
+
+// y en el constructor llamar al constructor de Asset para
+// inicializar el tipo de asset a Asset.Type.Mesh
+
+    public Mesh() : base(Asset.Type.Mesh)
+    {
+
+
+
+    }
+
+    public Mesh(RetrievedMesh retMesh)
+    : this()
+    {
+
+        _retrievedMesh = retMesh;
+
+    }
+
+// Antes de compilar para ver si todo va bien debemos modificar 
+// todos los tipos Dictionary<string,Mesh> a Dictionary<string,Asset> 
+// en Window.cs y en Level.cs
+
+// Por ejemplo, al principio de la clase Window
+
+public Dictionary<string,Asset> AssetCollection {get; set;}
+
+// Al principio de la implementaci'on del constructor de Window
+
+        AssetCollection=new Dictionary<string,Asset>();
+
+// En Level.cs en la declaraci'on del m'etodo LoadLevel
+//
+public void LoadLevel(Dictionary<string,Asset> AssetCollection)
+
+// en el m'etodo GetActiveMeshes
+
+public List<string> GetActiveMeshes(Dictionary<string,Asset> assets){
+
+// Adem'as hay que hacer un cast en las asignaciones de variables de tipo Mesh
+// Por ejemplo en Window.cs en el m'etodo Onload al principio del bucle sobre
+// mallas activas
+
+foreach(string meshid in activeMeshes){
+    Mesh mesh=(Mesh) AssetCollection[meshid];
+
+// En Window.cs en OnRenderFrame dentro del bucle de actores
+// hay varias asignaciones a mesh a los que debemos hacer un cast
+
+    foreach(string actorid in _level.ActorCollection.Keys){
+        Actor actor=_level.ActorCollection[actorid];
+        if( !actor.Enabled)
+            continue;
+        
+        //Collisions
+        Mesh ?mesh;
+        if(bDrawCollision)
+        {
+            if(! AssetCollection.ContainsKey(actor.CollisionMeshId))
+                continue;
+            else{
+		// Cast aqu'i
+                mesh=(Mesh) AssetCollection[actor.CollisionMeshId];
+            }
+        }
+        else
+        {
+            if(! AssetCollection.ContainsKey(actor.StaticMeshId))
+                continue;
+            else
+		// Cast aqu'i
+                mesh=(Mesh) AssetCollection[actor.StaticMeshId];
+
+        }
+
+// Ahora debemos descargarnos de LearnOpenTK el archivo Texture.cs
+// que define la clase Texture. Es una clase de utilidad con
+// m'etodos para cargar un archivo de una textura cuya resoluci'on
+// debe ser potencia de 2 y un m'etodo Use que asigna la textura a
+// la unidad de muestreo 0 en el pipeline.
+
+// Esta clase hace uso de la librer'ia de manejo de im'agenes StbImageSharp por lo que debemos ejecutar en el directorio del proyecto>
+
+    dotnet add package StbImageSharp
+
+// Despu'es de hacer esto el archivo .csproj del proyecto deber'ia 
+// ser:
+//
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenTk" Version="4.8.2" />
+    <PackageReference Include="Optional" Version="4.0.0" />
+    <PackageReference Include="StbImageSharp" Version="2.30.15" />
+  </ItemGroup>
+
+</Project>
+
+// Ahora crear'iamos el archivo TextureAsset.cs y en el la clase
+// TextureAsset
+
+using LearnOpenTK.Common; //Texture
+
+public class TextureAsset : Asset
+{
+	public Texture tex {get; private set;}
+	public TextureAsset(Texture tex) : base(Asset.Type.Texture)
+	{
+		this.tex=tex;
+	}
+
+}
+
+// Ahora podremos modificar el m'etodo LoadLevel para cargar las texturas. Para evitar confusiones pongo el m'etodo completo aunque solo se ha insertado la carga de las texturas
+
+public void LoadLevel(Dictionary<string,Asset> AssetCollection)
+{
+
+	// Read and deserialize json for level
+
+	string ?text=null;
+	if(_levelFilePath is not null)
+	text=File.ReadAllText(_levelFilePath);
+	if((text is not null) && (_jsonOptions is not null))
+	_retrievedLevel =  JsonSerializer.Deserialize<RetrievedLevel>(text,_jsonOptions); 
+
+	if(_retrievedLevel is null)
+		throw new Exception("Error retrieving main level");
+
+	// Process retrieved mesh_list
+
+	for(int i=0;i<_retrievedLevel.mesh_list.Length;i++){
+
+		RetrievedMeshMeta meshMeta=_retrievedLevel.mesh_list[i];
+
+		// Read and deserialize mesh json file
+		if(meshMeta.file is not null)
+		   text=File.ReadAllText(meshMeta.file);
+		RetrievedMesh ?retMesh= null;
+		if((text is not null) && (_jsonOptions is not null))
+		{
+		     retMesh =  JsonSerializer.Deserialize<RetrievedMesh>(text,_jsonOptions); 
+		}
+		if(retMesh is null)
+		   throw new Exception($"Error retrieving mesh from file {meshMeta.file}");
+
+		// Build a new mesh asset
+		Mesh mesh= new Mesh(retMesh);
+		mesh.Make();
+
+		AssetCollection.Add(meshMeta.id,mesh);
+	}
+
+	// Process texture list
+
+	for(int i=0;i<_retrievedLevel.texture_list.Length;i++){
+
+		RetrievedTextureMeta textureMeta=_retrievedLevel.texture_list[i];
+		Texture tex = Texture.LoadFromFile(textureMeta.file);
+		AssetCollection.Add(textureMeta.id,new TextureAsset(tex));
+
+	}
+
+    	// Now, actors
+
+	for(int i=0;i<_retrievedLevel.actor_list.Length;i++){
+		RetrievedActor retActor=_retrievedLevel.actor_list[i];
+		Actor actor = new Actor();
+		actor.Enabled=retActor.enabled;
+		actor.StaticMeshId=retActor.sm;
+
+		//Collision
+		actor.CollisionMeshId=retActor.collision;
+		actor.SetCollisionGeometry(AssetCollection);
+
+
+	        actor.SetTransform(
+        		new Vector3(retActor.position[0],retActor.position[1],retActor.position[2]),
+            		new Vector3(retActor.orientation.axis[0],retActor.orientation.axis[1],retActor.orientation.axis[2]),
+            		retActor.orientation.angle, 
+            		new Vector3(retActor.scale[0],retActor.scale[1],retActor.scale[2]));
+        
+        	actor.UpdateCollisionModel();
+
+
+        	ActorCollection.Add(retActor.id,actor);
+
+    	}
+
+
+    	// Now PlayerSart
+
+    	PlayerStartPosition = new Vector3(_retrievedLevel.playerstartposition[0],_retrievedLevel.playerstartposition[0],_retrievedLevel.playerstartposition[0]);
+    	PlayerStartRotationAngle = _retrievedLevel.playerstartrotationangle;
+    	PlayerStartRotationAxis= new Vector3(_retrievedLevel.playerstartrotationaxis[0],_retrievedLevel.playerstartrotationaxis[0],_retrievedLevel.playerstartrotationaxis[0]); 
+
+        
+}   
+
+// En esta implementaci'on vamos a mantener un solo programa por sencillez. De modo que nuestro shader de fragmentos ser'a modificado para manejar materiales sin texturas y materiales con texturas. El nuevo c'odigo es:
+//
+
+#version 450 
+
+
+layout(location=0) in vec2 TexCoord;
+layout(location=1) in vec4 VertexNormal; 
+
+layout(location=0) out vec4 OutFragColor;
+
+uniform sampler2D uTexture;
+
+uniform int bTex;
+uniform vec3 diffuse_color;
+uniform vec3 AmbientLight;
+uniform vec3 DirLight0Diffuse;
+uniform vec3 DirLight0Direction;
+
+void main()
+{
+    vec4 tSample=texture(uTexture,TexCoord);
+
+    float cl=max(dot(DirLight0Direction,VertexNormal.xyz),0);
+   
+    vec3 color= bTex==1 ? tSample.rgb : diffuse_color;
+    vec4 newcolor=vec4(AmbientLight*color+cl*DirLight0Diffuse.rgb*color,1.0);
+    OutFragColor=newcolor;
+}   
+
+// Como hay dos uniform nuevos hay que asignarlos.
+// Esto lo vamos a hacer en el nuevo m'etodo Draw de Mesh
+//
+ public void Draw(Shader _shader, Option<Vector3> dcolor, Dictionary<string,Asset> AssetCollection)
+    {
+        Vector3 vcolor;
+
+        if (indexData is not null && slotData is not null)
+            {
+                for (int i = 0; i < slotData.Length; i++)
+                {
+                    vcolor = dcolor.ValueOr(new Vector3(
+                        matData[i].diffuse_color[0],
+                        matData[i].diffuse_color[1],
+                        matData[i].diffuse_color[2]));
+
+                    _shader.SetVector3("diffuse_color", vcolor);
+
+		    if(matData[i].texture_id=="" || dcolor.HasValue)
+			    _shader.SetInt("bTex",0);
+		    else 
+		    {
+			    _shader.SetInt("bTex",1);
+			    TextureAsset texAsset = (TextureAsset) AssetCollection[matData[i].texture_id];			
+			    // Use texture sampler unit 0
+			    texAsset.tex.Use(0);
+		     }
+			    
+                    int nelements = 0;
+                    if (i == (slotData.Length - 1))
+                        nelements = indexData.Length - slotData[i];
+		     else
+                        nelements = slotData[i + 1] - slotData[i];
+
+
+			//GL.DrawElements(PrimitiveType.Triangles, nelements, DrawElementsType.UnsignedInt, ref indexData[slotData[i]]);
+
+			GL.DrawArrays(PrimitiveType.Triangles,slotData[i],nelements);
+
+
+                }
+            }
+    }
+
+
