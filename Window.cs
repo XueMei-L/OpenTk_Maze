@@ -18,46 +18,14 @@ public class Window : GameWindow
     private bool _foundExit = false;
     private bool bDrawCollision = false;
 
-    // 主角（Pawn）控制变量
-    private Vector3 _pawnPosition = Vector3.Zero;
-    private Vector3 _pawnScale = new Vector3(0.12f);
-    private float _pawnYaw = 0.0f;
-    private float _pawnCameraHeight = 0.7f;
-    private float _pawnModelYawOffset = 270.0f; // 初始偏置角度 (90 + 180)，让模型面朝迷宫内
+    // timer counter
+    private float _totalTime = 60.0f; // 总时间（比如 60 秒）
+    private float _timeRemaining = 60.0f; // 剩余时间
 
-    // 缓存出口的 Actor 引用，避免在 Update 中每帧进行高能耗的循环比对
-    private Actor? _exitActor = null; 
-
-    // 15x15 迷宫矩阵：1 = 墙壁 Cube，0 = 通道，2 = 猴头出口 B
-    private int[,] mazeGrid = new int[15, 15]
-    {
-        {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}, // 顶层外墙
-        {1,0,0,0,0,0,1,0,0,0,0,0,0,0,1}, 
-        {1,0,1,1,1,0,1,0,1,1,1,1,1,0,1}, 
-        {1,0,1,0,0,0,1,0,1,0,0,0,1,0,1}, 
-        {1,0,1,0,1,1,1,0,1,0,1,0,1,1,1}, 
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,2}, // 行索引5：左侧入口 A 和右侧出口 B 
-        {1,0,1,1,1,1,1,0,1,0,1,1,1,1,1}, 
-        {1,0,0,0,1,0,0,0,1,0,0,0,0,0,1}, 
-        {1,1,1,0,1,0,1,0,1,1,1,1,1,0,1}, 
-        {1,0,0,0,1,0,1,0,0,0,0,0,1,0,1}, 
-        {1,0,1,1,1,0,1,1,1,1,1,0,1,0,1}, 
-        {1,0,1,0,0,0,1,0,1,0,0,0,1,0,1}, 
-        {1,0,1,1,1,1,1,0,1,0,1,1,1,0,1}, 
-        {1,0,0,0,0,0,0,0,1,0,0,0,0,0,1}, 
-        {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}  // 底层外墙
-    };
-
-    float cubeSize = 2.0f; // 每个方块的基准大小
-    private Vector3 MazeOrigin => new Vector3(-cubeSize * 7.0f, 0.0f, -cubeSize * 7.0f);
-
-    // 内部类成员（原代码底部移上来的私有变量）
-    private Shader? _shader;
-    private Texture _dragonTexture;
-    private Camera _camera;
-    private Controller _controller;
-    private int _horizontalResolution;
-    private int _verticalResolution;
+    // ui 
+    // 定义游戏状态：运行中、胜利、失败
+    private enum GameState { Running, Won, Lost }
+    private GameState _currentState = GameState.Running;
 
     public Window(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
         : base(gameWindowSettings, nativeWindowSettings)
@@ -140,22 +108,30 @@ public class Window : GameWindow
         // 把主角精准传送到左侧入口外侧安全区
         if (_level.ActorCollection.TryGetValue("apawn", out Actor? pawn))
         {
-            _pawnPosition = new Vector3(MazeOrigin.X - 3.0f * cubeSize, 0.0f, MazeOrigin.Z + 5 * cubeSize);
+            // _pawnPosition = new Vector3(MazeOrigin.X - 3.0f * cubeSize, 0.0f, MazeOrigin.Z + 5 * cubeSize);
+            // player start point
+            _pawnPosition = new Vector3(
+                MazeOrigin.X + 13 * cubeSize,
+                0.0f,
+                MazeOrigin.Z + 5 * cubeSize
+            );
             _pawnYaw = 0.0f;
             pawn.SetTransform(_pawnPosition, new Vector3(0.0f, 1.0f, 0.0f), _pawnYaw + _pawnModelYawOffset, _pawnScale);
             pawn.UpdateCollisionModel();
 
-            // 设置相机的初始跟随位置与朝向
+            // ✨【修正初始位置】：考虑模型偏置角，并将相机往后拉 180 度
             float radius = _controller.CameraDistance;
-            float yawRad = MathHelper.DegreesToRadians(_pawnYaw);
-            Vector3 pawnForward = new Vector3(MathF.Cos(yawRad), 0.0f, MathF.Sin(yawRad));
+            // 计算 Pawn 实际面朝方向的弧度（基础偏角 + 模型的九十度偏置）
+            float pawnTrueYawRad = MathHelper.DegreesToRadians(_pawnYaw + _pawnModelYawOffset + 90.0f);
+            Vector3 pawnForward = new Vector3(MathF.Cos(pawnTrueYawRad), 0.0f, MathF.Sin(pawnTrueYawRad));
+
+            // 相机位置 = Pawn位置 - (Pawn的前方向量 * 半径) + 高度
+            // 这样相机在出生时就会直接落在 Pawn 的屁股后面
             _camera.Position = _pawnPosition - pawnForward * radius + new Vector3(0.0f, _pawnCameraHeight, 0.0f);
 
-            // 让相机平滑看向主角
+            // 重新让相机算朝向，对准主角
             Vector3 toPawn = _pawnPosition - _camera.Position;
-            float distXZ = MathF.Sqrt(toPawn.X * toPawn.X + toPawn.Z * toPawn.Z);
             _camera.Yaw = MathHelper.RadiansToDegrees(MathF.Atan2(toPawn.Z, toPawn.X));
-            _camera.Pitch = MathHelper.RadiansToDegrees(MathF.Atan2(toPawn.Y, distXZ));
         }
     }
 
@@ -348,6 +324,13 @@ public class Window : GameWindow
 
         _controller.UpdateState(this.KeyboardState, this.MouseState, e);
         UpdateGameState((float)e.Time);
+
+        // timer update
+        if (_timeRemaining > 0)
+        {
+            _timeRemaining -= (float)e.Time;
+            if (_timeRemaining < 0) _timeRemaining = 0;
+        }
     }
 
     protected override void OnRenderFrame(FrameEventArgs args)
@@ -414,6 +397,77 @@ public class Window : GameWindow
         }
 
         GL.StencilMask(0xFF);
+
+        // ==================== 开始绘制 2D 计时器矩形 ====================
+        // timer counter
+        if (_shader != null)
+        {
+            // 1. 计算时间比例
+            float timeRatio = _timeRemaining / _totalTime;
+
+            // 2. 定义矩形在屏幕上的尺寸（像素单位）
+            float barMaxWidth = 400.0f; // 满时间时的总宽度
+            float barHeight = 25.0f;    // 矩形的高度
+            float barCurrentWidth = barMaxWidth * timeRatio; // 动态计算当前宽度
+
+            // 计算屏幕中上方的绝对像素坐标
+            float posX = (Size.X / 2.0f) - (barMaxWidth / 2.0f);
+            float posY = Size.Y - 50.0f - barHeight; // 距离顶部 50 像素
+
+            // 3. 彻底关闭所有 3D 渲染状态，确保 2D 矩形无条件置顶
+            GL.Disable(EnableCap.DepthTest);
+            GL.Disable(EnableCap.StencilTest);
+            GL.Disable(EnableCap.CullFace);
+
+            // 4. 建立 2D 像素正交投影矩阵
+            Matrix4 orthoProjection = Matrix4.CreateOrthographicOffCenter(0, Size.X, 0, Size.Y, -1, 1);
+
+            _shader.Use();
+            _shader.SetMatrix4("view", Matrix4.Identity);       // 2D 不需要摄像机视口
+            _shader.SetMatrix4("model", Matrix4.Identity);      // 2D 坐标直接手工写死，不需要模型矩阵变换
+            _shader.SetMatrix4("projection", orthoProjection); // 注入 2D 像素矩阵
+            _shader.SetInt("bTex", 0);                         // 禁用绿龙贴图，使用纯色绘制
+
+            // 设置颜色：时间充裕时为亮绿色，少于 30% 时变为警示红
+            Vector3 barColor = timeRatio > 0.3f ? new Vector3(0.0f, 1.0f, 0.0f) : new Vector3(1.0f, 0.0f, 0.0f);
+            _shader.SetVector3("diffuse_color", barColor);
+            // Vector3 pureRedColor = new Vector3(1.0f, 0.0f, 0.0f); // R=1, G=0, B=0
+            // _shader.SetVector3("diffuse_color", pureRedColor);
+
+            // 5. 【核心修复】：手写一组干净的 2D 屏幕四边形顶点数据（跳过任何 cube 逻辑）
+            // 每一个顶点包含：X 坐标, Y 坐标, Z 坐标 (永远为 0)
+            float[] uiVertices = new float[]
+            {
+                posX,                   posY,             0.0f, // 左下角
+                posX + barCurrentWidth, posY,             0.0f, // 右下角
+                posX + barCurrentWidth, posY + barHeight, 0.0f, // 右上角
+                posX,                   posY + barHeight, 0.0f  // 左上角
+            };
+
+            // 6. 生成一个临时缓冲，把这 4 个点送进显卡
+            int tempVBO = GL.GenBuffer();
+            int tempVAO = GL.GenVertexArray();
+
+            GL.BindVertexArray(tempVAO);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, tempVBO);
+            GL.BufferData(BufferTarget.ArrayBuffer, uiVertices.Length * sizeof(float), uiVertices, BufferUsageHint.StreamDraw);
+
+            // 因为你的 shader.vert 里面 location = 0 是 aPosition，所以这里直接绑定到 0 号槽位
+            GL.EnableVertexAttribArray(0);
+            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+
+            // 7. 使用三角形扇（TriangleFan）一气呵成画出全填充矩形
+            GL.DrawArrays(PrimitiveType.TriangleFan, 0, 4);
+
+            // 8. 绘制完毕，随手解绑并清理垃圾，防止内存泄漏
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+            GL.BindVertexArray(0);
+            GL.DeleteVertexArray(tempVAO);
+            GL.DeleteBuffer(tempVBO);
+        }
+        // ==================== 2D 计时器矩形绘制结束 ====================
+
+
         SwapBuffers();
     }
 
@@ -430,4 +484,45 @@ public class Window : GameWindow
         GL.BindVertexArray(0);
         base.OnUnload();
     }
+
+    // 主角（Pawn）控制变量
+    private Vector3 _pawnPosition = Vector3.Zero;
+    private Vector3 _pawnScale = new Vector3(0.12f);
+    private float _pawnYaw = 0.0f;
+    private float _pawnCameraHeight = 0.7f;
+    private float _pawnModelYawOffset = 90.0f; // 初始偏置角度 (90 + 180)，让模型面朝迷宫内
+
+    // 缓存出口的 Actor 引用，避免在 Update 中每帧进行高能耗的循环比对
+    private Actor? _exitActor = null; 
+
+    // 15x15 迷宫矩阵：1 = 墙壁 Cube，0 = 通道，2 = 猴头出口 B
+    private int[,] mazeGrid = new int[15, 15]
+    {
+        {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}, // 顶层外墙
+        {1,0,0,0,0,0,1,0,0,0,0,0,0,0,1}, 
+        {1,0,1,1,1,0,1,0,1,1,1,1,1,0,1}, 
+        {1,0,1,0,0,0,1,0,1,0,0,0,1,0,1}, 
+        {1,0,1,0,1,1,1,1,1,0,1,0,1,0,1}, 
+        {2,0,0,0,0,0,0,0,0,0,0,0,0,0,1}, // 行索引5：左侧入口 A 和右侧出口 B 
+        {1,0,1,1,1,1,1,0,1,0,1,1,1,1,1}, 
+        {1,0,0,0,1,0,0,0,1,0,0,0,0,0,1}, 
+        {1,1,1,0,1,0,1,0,1,1,1,1,1,0,1}, 
+        {1,0,0,0,1,0,1,0,0,0,0,0,1,0,1}, 
+        {1,0,1,1,1,0,1,1,1,1,1,0,1,0,1}, 
+        {1,0,1,0,0,0,1,0,1,0,0,0,1,0,1}, 
+        {1,0,1,1,1,1,1,0,1,0,1,1,1,0,1}, 
+        {1,0,0,0,0,0,0,0,1,0,0,0,0,0,1}, 
+        {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}  // 底层外墙
+    };
+
+    float cubeSize = 2.0f; // 每个方块的基准大小
+    private Vector3 MazeOrigin => new Vector3(-cubeSize * 7.0f, 0.0f, -cubeSize * 7.0f);
+
+    // 内部类成员（原代码底部移上来的私有变量）
+    private Shader? _shader;
+    private Texture _dragonTexture = null!;
+    private Camera _camera;
+    private Controller _controller;
+    private int _horizontalResolution;
+    private int _verticalResolution;
 }

@@ -24,8 +24,8 @@ void main(){
 
     // Coordinates in Camera Space and the projection
     vec4 position=vec4(worldPosition,1.0f) * view * projection;
+
     VertexNormal=vec4(aNormal,0.0f)*normalTransformMatrix;
     TexCoord=aTexCoord;
     gl_Position=position;
-
 }
