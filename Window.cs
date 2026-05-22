@@ -19,8 +19,8 @@ public class Window : GameWindow
     private bool bDrawCollision = false;
 
     // timer counter
-    private float _totalTime = 60.0f; // 总时间（比如 60 秒）
-    private float _timeRemaining = 60.0f; // 剩余时间
+    private float _totalTime = 10.0f; // 总时间（比如 60 秒）
+    private float _timeRemaining = 10.0f; // 剩余时间
 
     // ui 
     // 定义游戏状态：运行中、胜利、失败
@@ -135,12 +135,128 @@ public class Window : GameWindow
         }
     }
 
+    // protected void UpdateGameState(float deltaTime)
+    // {
+    //     // ✨【修改点 2】：在游戏更新时处理时间倒计时
+    //     if (_timeRemaining > 0)
+    //     {
+    //         _timeRemaining -= deltaTime;
+    //         if (_timeRemaining <= 0)
+    //         {
+    //             _timeRemaining = 0;
+    //             _currentState = GameState.Lost; // 时间到，标记为失败
+    //             this.Title = "¡Has perdido! Tiempo agotado. (Game Over)";
+    //             Console.WriteLine("失败：时间已耗尽！");
+    //             return; // 立即结束更新，Pawn 动弹不得
+    //         }
+    //     }
+    //     // 获取用户 WASD 轴向输入
+    //     Vector3 movement = _controller.GetMovement();
+
+    //     // 获取鼠标旋转增量，仅允许绕 Y 轴旋转（Yaw），保持 Pitch 固定
+    //     Angles2D deltaAngles = _controller.GetArmOrientation();
+    //     _camera.Yaw = _camera.Yaw + (float)deltaAngles.Yaw;
+
+    //     if (!_level.ActorCollection.TryGetValue("apawn", out Actor? pawn))
+    //         return;
+
+    //     // 计算基于当前相机视角的平面移动向量 (XZ平面)
+    //     Vector3 forward = new Vector3(_camera.Front.X, 0, _camera.Front.Z);
+    //     Vector3 right = new Vector3(_camera.Right.X, 0, _camera.Right.Z);
+    //     Vector3 translation = forward * movement.X + right * movement.Y;
+
+    //     pawn.SaveModel();
+
+    //     Vector3 pos = pawn.Model.ExtractTranslation();
+    //     Vector3 scale = pawn.Model.ExtractScale();
+
+    //     if (translation.Length > 0.0001f)
+    //     {
+    //         // 动态计算主角朝向：让模型的正前方与当前运动方向完美对齐
+    //         float targetAngleRad = MathF.Atan2(translation.Z, translation.X);
+    //         pawn.Model =
+    //             Matrix4.CreateScale(scale) *
+    //             Matrix4.CreateRotationY(-targetAngleRad - MathF.PI / 2f) *
+    //             Matrix4.CreateTranslation(pos + translation);
+    //     }
+    //     else
+    //     {
+    //         pawn.Model = pawn.Model * Matrix4.CreateTranslation(translation);
+    //     }
+
+    //     pawn.UpdateCollisionModel();
+
+    //     // 碰撞判定：检测是否到达终点
+    //     if (!_foundExit && _exitActor != null && _exitActor.Enabled)
+    //     {
+    //         if (Collision.CheckEB(pawn, _exitActor))
+    //         {
+    //             _foundExit = true;
+    //             _exitActor.Enabled = false; // 隐藏终点模型
+    //             _exitActor.UpdateCollisionModel();
+
+    //             this.Title = "Has llegado a la salida";
+    //             var prev = Console.ForegroundColor;
+    //             Console.ForegroundColor = ConsoleColor.Red;
+    //             Console.WriteLine("Has llegado a la salida");
+    //             Console.ForegroundColor = prev;
+    //         }
+    //     }
+
+    //     // 普通墙面碰撞循环
+    //     foreach (string actorid in _level.ActorCollection.Keys)
+    //     {
+    //         // ✨【微调点 1】：过滤掉我们 JSON 里的终点 id "aexit"，防止碰撞导致飞船倒退卡死
+    //         if (actorid == "apawn" || actorid == "aexit")
+    //             continue;
+
+    //         Actor actor = _level.ActorCollection[actorid];
+    //         if (!actor.Enabled)
+    //             continue;
+
+    //         if (Collision.CheckEB(pawn, actor))
+    //         {
+    //             // 撞墙倒带
+    //             pawn.RestoreModel();
+    //             pawn.UpdateCollisionModel();
+    //             translation = Vector3.Zero;
+    //             break;
+    //         }
+    //     }
+
+    //     // 第三人称 Orbit 环绕相机跟随
+    //     Vector3 pawnNewPosition = pawn.Model.ExtractTranslation();
+    //     float radius = _controller.CameraDistance;      
+    //     Vector3 offset = -_camera.Front * radius;      
+    //     _camera.Position = pawnNewPosition + offset;   
+    // }
+
     protected void UpdateGameState(float deltaTime)
     {
+        // 1. 在最开始处理时间倒计时
+        if (_timeRemaining > 0)
+        {
+            _timeRemaining -= deltaTime;
+            if (_timeRemaining <= 0)
+            {
+                _timeRemaining = 0;
+                _currentState = GameState.Lost; // 时间到，标记为失败
+                this.Title = "¡Has perdido! Tiempo agotado. (Game Over)";
+                Console.WriteLine("失败：时间已耗尽！");
+                return; // 立即结束更新，彻底锁死
+            }
+        }
+
+        // 2. 如果游戏状态已经不是 Running（比如已经在上一帧赢了或输了），强行拦截，不让走后续任何逻辑
+        if (_currentState != GameState.Running)
+        {
+            return; 
+        }
+
         // 获取用户 WASD 轴向输入
         Vector3 movement = _controller.GetMovement();
 
-        // 获取鼠标旋转增量，仅允许绕 Y 轴旋转（Yaw），保持 Pitch 固定
+        // 获取鼠标旋转增量
         Angles2D deltaAngles = _controller.GetArmOrientation();
         _camera.Yaw = _camera.Yaw + (float)deltaAngles.Yaw;
 
@@ -152,6 +268,29 @@ public class Window : GameWindow
         Vector3 right = new Vector3(_camera.Right.X, 0, _camera.Right.Z);
         Vector3 translation = forward * movement.X + right * movement.Y;
 
+        // ✨【核心修复点 1】：在真正应用移动之前，提前单独给“2号盒子（终点）”做碰撞预测判定
+        if (!_foundExit && _exitActor != null && _exitActor.Enabled)
+        {
+            // 模拟 Pawn 移动之后的临时状态（这里为了安全，直接测当前是否已经重叠）
+            if (Collision.CheckEB(pawn, _exitActor))
+            {
+                _foundExit = true;
+                _exitActor.Enabled = false; // 隐藏终点模型
+                _exitActor.UpdateCollisionModel();
+
+                // 彻底锁死状态
+                _currentState = GameState.Won; 
+                
+                this.Title = "¡Has ganado! Éxito. (Victory)";
+                Console.WriteLine("成功：你找到了出口！");
+                
+                // 强行把当前帧和未来的移动向量归零，并直接跳出函数
+                translation = Vector3.Zero; 
+                return; 
+            }
+        }
+
+        // 保存当前没有移动前的模型（用于撞墙倒带）
         pawn.SaveModel();
 
         Vector3 pos = pawn.Model.ExtractTranslation();
@@ -159,7 +298,7 @@ public class Window : GameWindow
 
         if (translation.Length > 0.0001f)
         {
-            // 动态计算主角朝向：让模型的正前方与当前运动方向完美对齐
+            // 动态计算主角朝向
             float targetAngleRad = MathF.Atan2(translation.Z, translation.X);
             pawn.Model =
                 Matrix4.CreateScale(scale) *
@@ -173,27 +312,25 @@ public class Window : GameWindow
 
         pawn.UpdateCollisionModel();
 
-        // 碰撞判定：检测是否到达终点
+        // ✨【核心修复点 2】：再次在移动应用后双重判定（防止由于速度太快穿过去）
         if (!_foundExit && _exitActor != null && _exitActor.Enabled)
         {
             if (Collision.CheckEB(pawn, _exitActor))
             {
                 _foundExit = true;
-                _exitActor.Enabled = false; // 隐藏终点模型
+                _exitActor.Enabled = false;
                 _exitActor.UpdateCollisionModel();
 
-                this.Title = "Has llegado a la salida";
-                var prev = Console.ForegroundColor;
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Has llegado a la salida");
-                Console.ForegroundColor = prev;
+                _currentState = GameState.Won;
+                this.Title = "¡Has ganado! Éxito. (Victory)";
+                Console.WriteLine("成功：移动后触碰出口！");
+                return;
             }
         }
 
         // 普通墙面碰撞循环
         foreach (string actorid in _level.ActorCollection.Keys)
         {
-            // ✨【微调点 1】：过滤掉我们 JSON 里的终点 id "aexit"，防止碰撞导致飞船倒退卡死
             if (actorid == "apawn" || actorid == "aexit")
                 continue;
 
@@ -217,7 +354,6 @@ public class Window : GameWindow
         Vector3 offset = -_camera.Front * radius;      
         _camera.Position = pawnNewPosition + offset;   
     }
-
     protected void InitializeLevel()
     {
         _level = new Level(levelFilePath);
@@ -312,25 +448,30 @@ public class Window : GameWindow
         time += (float)e.Time;
         base.OnUpdateFrame(e);
 
+        // 1. 随时允许玩家按 Esc 键退出游戏
         if (KeyboardState.IsKeyDown(Keys.Escape))
         {
             Close();
         }
+
+        // ✨【核心修改】：如果游戏已经胜利或失败，直接拦截，停止接收后续的任何控制和状态更新
+        if (_currentState != GameState.Running)
+        {
+            return; // 绿龙动弹不得，相机停止环绕输入
+        }
+
+        // 2. 只有在游戏进行中，才允许按 C 键切换碰撞盒显示
         if (KeyboardState.IsKeyDown(Keys.C) && time > 0.5f)
         {
             bDrawCollision = !bDrawCollision;
             time = 0.0f;
         }
 
+        // 3. 更新输入控制器的底层状态（获取键盘鼠标增量）
         _controller.UpdateState(this.KeyboardState, this.MouseState, e);
-        UpdateGameState((float)e.Time);
 
-        // timer update
-        if (_timeRemaining > 0)
-        {
-            _timeRemaining -= (float)e.Time;
-            if (_timeRemaining < 0) _timeRemaining = 0;
-        }
+        // 4. 执行核心游戏状态更新（移动、时间倒计时、碰撞检测等）
+        UpdateGameState((float)e.Time);
     }
 
     protected override void OnRenderFrame(FrameEventArgs args)
@@ -398,74 +539,93 @@ public class Window : GameWindow
 
         GL.StencilMask(0xFF);
 
-        // ==================== 开始绘制 2D 计时器矩形 ====================
-        // timer counter
+        // ==================== 开始绘制 2D UI (计时条 + 结束状态) ====================
         if (_shader != null)
         {
-            // 1. 计算时间比例
+            // ---- A. 顶部固定的纯红计时条 ----
             float timeRatio = _timeRemaining / _totalTime;
+            float barMaxWidth = 400.0f;
+            float barHeight = 25.0f;
+            float barCurrentWidth = barMaxWidth * timeRatio;
 
-            // 2. 定义矩形在屏幕上的尺寸（像素单位）
-            float barMaxWidth = 400.0f; // 满时间时的总宽度
-            float barHeight = 25.0f;    // 矩形的高度
-            float barCurrentWidth = barMaxWidth * timeRatio; // 动态计算当前宽度
-
-            // 计算屏幕中上方的绝对像素坐标
             float posX = (Size.X / 2.0f) - (barMaxWidth / 2.0f);
-            float posY = Size.Y - 50.0f - barHeight; // 距离顶部 50 像素
+            float posY = Size.Y - 50.0f - barHeight;
 
-            // 3. 彻底关闭所有 3D 渲染状态，确保 2D 矩形无条件置顶
+            // 关闭 3D 渲染状态，强制 2D 置顶
             GL.Disable(EnableCap.DepthTest);
             GL.Disable(EnableCap.StencilTest);
             GL.Disable(EnableCap.CullFace);
 
-            // 4. 建立 2D 像素正交投影矩阵
             Matrix4 orthoProjection = Matrix4.CreateOrthographicOffCenter(0, Size.X, 0, Size.Y, -1, 1);
-
             _shader.Use();
-            _shader.SetMatrix4("view", Matrix4.Identity);       // 2D 不需要摄像机视口
-            _shader.SetMatrix4("model", Matrix4.Identity);      // 2D 坐标直接手工写死，不需要模型矩阵变换
-            _shader.SetMatrix4("projection", orthoProjection); // 注入 2D 像素矩阵
-            _shader.SetInt("bTex", 0);                         // 禁用绿龙贴图，使用纯色绘制
+            _shader.SetMatrix4("view", Matrix4.Identity);
+            _shader.SetMatrix4("model", Matrix4.Identity);
+            _shader.SetMatrix4("projection", orthoProjection); 
+            _shader.SetInt("bTex", 0); // 禁用贴图，使用纯色
 
-            // 设置颜色：时间充裕时为亮绿色，少于 30% 时变为警示红
-            Vector3 barColor = timeRatio > 0.3f ? new Vector3(0.0f, 1.0f, 0.0f) : new Vector3(1.0f, 0.0f, 0.0f);
-            _shader.SetVector3("diffuse_color", barColor);
-            // Vector3 pureRedColor = new Vector3(1.0f, 0.0f, 0.0f); // R=1, G=0, B=0
-            // _shader.SetVector3("diffuse_color", pureRedColor);
-
-            // 5. 【核心修复】：手写一组干净的 2D 屏幕四边形顶点数据（跳过任何 cube 逻辑）
-            // 每一个顶点包含：X 坐标, Y 坐标, Z 坐标 (永远为 0)
-            float[] uiVertices = new float[]
-            {
-                posX,                   posY,             0.0f, // 左下角
-                posX + barCurrentWidth, posY,             0.0f, // 右下角
-                posX + barCurrentWidth, posY + barHeight, 0.0f, // 右上角
-                posX,                   posY + barHeight, 0.0f  // 左上角
+            // 绘制顶部的红色计时条
+            _shader.SetVector3("diffuse_color", new Vector3(1.0f, 0.0f, 0.0f)); // 纯红
+            float[] uiVertices = new float[] {
+                posX,                   posY,             0.0f,
+                posX + barCurrentWidth, posY,             0.0f,
+                posX + barCurrentWidth, posY + barHeight, 0.0f,
+                posX,                   posY + barHeight, 0.0f
             };
 
-            // 6. 生成一个临时缓冲，把这 4 个点送进显卡
             int tempVBO = GL.GenBuffer();
             int tempVAO = GL.GenVertexArray();
-
             GL.BindVertexArray(tempVAO);
             GL.BindBuffer(BufferTarget.ArrayBuffer, tempVBO);
             GL.BufferData(BufferTarget.ArrayBuffer, uiVertices.Length * sizeof(float), uiVertices, BufferUsageHint.StreamDraw);
-
-            // 因为你的 shader.vert 里面 location = 0 是 aPosition，所以这里直接绑定到 0 号槽位
             GL.EnableVertexAttribArray(0);
             GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
-
-            // 7. 使用三角形扇（TriangleFan）一气呵成画出全填充矩形
             GL.DrawArrays(PrimitiveType.TriangleFan, 0, 4);
 
-            // 8. 绘制完毕，随手解绑并清理垃圾，防止内存泄漏
+
+            // ---- B. 【游戏结束状态提示】失败显示纯红，成功显示纯绿 ----
+            if (_currentState != GameState.Running)
+            {
+                // 定义屏幕中央大框的尺寸和像素位置
+                float boxWidth = 500.0f;
+                float boxHeight = 200.0f;
+                float boxX = (Size.X / 2.0f) - (boxWidth / 2.0f);
+                float boxY = (Size.Y / 2.0f) - (boxHeight / 2.0f);
+
+                Vector3 endColor;
+                if (_currentState == GameState.Won)
+                {
+                    // ✨ 成功：亮绿色 (R=0, G=1, B=0)
+                    endColor = new Vector3(0.0f, 1.0f, 0.0f);
+                }
+                else
+                {
+                    // ✨ 失败：鲜红色 (R=1, G=0, B=0)
+                    endColor = new Vector3(1.0f, 0.0f, 0.0f);
+                }
+                
+                // 将颜色注入着色器
+                _shader.SetVector3("diffuse_color", endColor);
+
+                // 构建中央大框的 4 个顶点
+                float[] endBoxVertices = new float[] {
+                    boxX,            boxY,             0.0f,
+                    boxX + boxWidth, boxY,             0.0f,
+                    boxX + boxWidth, boxY + boxHeight, 0.0f,
+                    boxX,            boxY + boxHeight, 0.0f
+                };
+
+                // 重新填充数据并一气呵成画出来
+                GL.BufferData(BufferTarget.ArrayBuffer, endBoxVertices.Length * sizeof(float), endBoxVertices, BufferUsageHint.StreamDraw);
+                GL.DrawArrays(PrimitiveType.TriangleFan, 0, 4);
+            }
+
+            // 清理缓冲区垃圾，释放显存
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
             GL.BindVertexArray(0);
             GL.DeleteVertexArray(tempVAO);
             GL.DeleteBuffer(tempVBO);
         }
-        // ==================== 2D 计时器矩形绘制结束 ====================
+        // ==================== 2D UI 绘制结束 ====================
 
 
         SwapBuffers();
