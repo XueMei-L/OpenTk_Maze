@@ -1,5 +1,4 @@
 {
-
     "mesh_list" : [
         {
             "file" : "assets/sm_airship_uv.json",
@@ -10,6 +9,10 @@
             "id" : "cube"
         },
         {
+            "file" : "assets/sm_cube_dragon2_uv.json",
+            "id" : "cube_dragon"
+        },
+        {
             "file" : "assets/sm_airship_collision_uv.json",
             "id" : "col_pawn"
         },
@@ -17,13 +20,16 @@
             "file" : "assets/sm_cube_collision_uv.json",
             "id" : "col_cube"
         }
+    ],
 
-        
-
+    "texture_list" : [
+        {
+            "file" : "assets/greendragon.jpg",
+            "id" : "dragon"
+        }
     ],
 
     "actor_list" : [
-        
         {
             "id" : "apawn",
             "sm" : "pawn",
@@ -35,13 +41,11 @@
                 "angle" : 0.0
             },
             "scale" : [0.4,0.4,0.4]
-
         },
         {
             "id" : "aprop2",
             "sm" : "cube",
             "collision" : "col_cube",
-
             "enabled" : true,
             "position" : [10.0,0.0,10.0],
             "orientation" : {
@@ -49,14 +53,11 @@
                 "angle" : 0.0
             },
             "scale" : [1.0,1.0,1.0]
-
-
         },
-		{
+        {
             "id" : "aprop3",
             "sm" : "cube",
             "collision" : "col_cube",
-
             "enabled" : true,
             "position" : [10.0,0.0,-10.0],
             "orientation" : {
@@ -64,14 +65,11 @@
                 "angle" : 0.0
             },
             "scale" : [1.0,1.0,1.0]
-
-
         },
-		{
+        {
             "id" : "aprop4",
             "sm" : "cube",
             "collision" : "col_cube",
-
             "shadow" : true,
             "enabled" : true,
             "position" : [-10.0,0.0,-10.0],
@@ -80,29 +78,36 @@
                 "angle" : 0.0
             },
             "scale" : [1.0,1.0,1.0]
-
-
         },
-		{
+        
+        {
+            "id" : "aexit",
+            "sm" : "cube_dragon",
+            "collision" : "col_cube",
+            "enabled" : true,
+            "position" : [0.0,0.0,0.0],
+            "orientation" : {
+                "axis" : [0.0,1.0,0.0],
+                "angle" : 0.0
+            },
+            "scale" : [1.0,1.0,1.0]
+        },
 
+        {
             "type" : "staticmesh",
             "sm" : "cube",
             "collision" : "col_cube",
-
             "enabled" : true,
             "position" : [0.0,-2.0,0.0],
             "orientation" : {
                 "axis" : [0.0,1.0,0.0],
                 "angle" : 0.0
             },
-			"scale" : [100.0,0.1,100.0]
-		}
-        
+            "scale" : [100.0,0.1,100.0]
+        }
     ],
 
     "playerstartposition" : [0.0,0.0,0.0],
     "playerstartrotationangle" : 0.0,
     "playerstartrotationaxis" : [0.0,1.0,0.0]
-
-    
 }

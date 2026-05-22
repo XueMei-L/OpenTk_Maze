@@ -5,6 +5,8 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using Optional;
+using System;
+using System.Collections.Generic;
 
 public class Window : GameWindow
 {
@@ -26,27 +28,7 @@ public class Window : GameWindow
     // 缓存出口的 Actor 引用，避免在 Update 中每帧进行高能耗的循环比对
     private Actor? _exitActor = null; 
 
-    // 15x15 的迷宫矩阵映射 (根据你的迷宫图片完全一比一像素化还原)
-    // 1 = 墙壁 Cube，0 = 可以行走的通道
-    // private int[,] mazeGrid = new int[15, 15]
-    // {
-    //     {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}, // 顶层外墙
-    //     {1,0,0,0,0,0,1,0,0,0,0,0,0,0,1}, 
-    //     {1,0,1,1,1,0,1,0,1,1,1,1,1,0,1}, 
-    //     {1,0,1,0,0,0,1,0,1,0,0,0,1,0,1}, 
-    //     {1,0,1,0,1,1,1,0,1,0,1,0,1,1,1}, 
-    //     {0,0,1,0,0,0,0,0,1,0,1,0,0,0,2}, // 行索引5：左侧入口 A 和右侧出口 B
-    //     {1,0,1,1,1,1,1,0,1,0,1,1,1,1,1}, 
-    //     {1,0,0,0,1,0,0,0,1,0,0,0,0,0,1}, 
-    //     {1,1,1,0,1,0,1,0,1,1,1,1,1,0,1}, 
-    //     {1,0,0,0,1,0,1,0,0,0,0,0,1,0,1}, 
-    //     {1,0,1,1,1,0,1,1,1,1,1,0,1,0,1}, 
-    //     {1,0,1,0,0,0,1,0,1,0,0,0,1,0,1}, 
-    //     {1,0,1,1,1,1,1,0,1,0,1,1,1,0,1}, 
-    //     {1,0,0,0,0,0,0,0,1,0,0,0,0,0,1}, 
-    //     {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}  // 底层外墙
-    // };
-    // 15x15 迷宫矩阵：1 = 墙壁 Cube，0 = 通道，2 = 绿色出口 B
+    // 15x15 迷宫矩阵：1 = 墙壁 Cube，0 = 通道，2 = 猴头出口 B
     private int[,] mazeGrid = new int[15, 15]
     {
         {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}, // 顶层外墙
@@ -71,6 +53,7 @@ public class Window : GameWindow
 
     // 内部类成员（原代码底部移上来的私有变量）
     private Shader? _shader;
+    private Texture _dragonTexture;
     private Camera _camera;
     private Controller _controller;
     private int _horizontalResolution;
@@ -134,10 +117,22 @@ public class Window : GameWindow
                 }
                 else if (cellType == 2)
                 {
-                    // 优化：直接生成唯一的出口块并建立缓存，不走先加后删的逻辑
-                    string exitId = $"exit_{row}_{col}";
-                    _exitActor = CreateMazeCubeWall(position);
-                    _level.ActorCollection.Add(exitId, _exitActor);
+                    // ✨【保持原汁原味】：直接从 JSON 加载出来的字典里去抓取这个 aexit
+                    if (_level.ActorCollection.TryGetValue("aexit", out Actor? jsonExit))
+                    {
+                        _exitActor = jsonExit;
+
+                        // 将其精准挪动到迷宫矩阵第 5 行，第 14 列的物理出口坐标
+                        _exitActor.SetTransform(
+                            position, 
+                            new Vector3(0.0f, 1.0f, 0.0f), 
+                            0.0f, 
+                            new Vector3(1.0f, 1.0f, 1.0f)
+                        );
+                        
+                        // 刷新它的物理碰撞盒位置
+                        _exitActor.UpdateCollisionModel();
+                    }
                 }
             }
         }
@@ -156,6 +151,7 @@ public class Window : GameWindow
             Vector3 pawnForward = new Vector3(MathF.Cos(yawRad), 0.0f, MathF.Sin(yawRad));
             _camera.Position = _pawnPosition - pawnForward * radius + new Vector3(0.0f, _pawnCameraHeight, 0.0f);
 
+            // 让相机平滑看向主角
             Vector3 toPawn = _pawnPosition - _camera.Position;
             float distXZ = MathF.Sqrt(toPawn.X * toPawn.X + toPawn.Z * toPawn.Z);
             _camera.Yaw = MathHelper.RadiansToDegrees(MathF.Atan2(toPawn.Z, toPawn.X));
@@ -201,13 +197,13 @@ public class Window : GameWindow
 
         pawn.UpdateCollisionModel();
 
-        // 优化点 1：利用缓存的句柄单次检测出口碰撞，彻底消除上百次无脑字符串循环
+        // 碰撞判定：检测是否到达终点
         if (!_foundExit && _exitActor != null && _exitActor.Enabled)
         {
             if (Collision.CheckEB(pawn, _exitActor))
             {
                 _foundExit = true;
-                _exitActor.Enabled = false; // 隐藏绿色方块
+                _exitActor.Enabled = false; // 隐藏终点模型
                 _exitActor.UpdateCollisionModel();
 
                 this.Title = "Has llegado a la salida";
@@ -218,10 +214,11 @@ public class Window : GameWindow
             }
         }
 
-        // 优化点 2：普通墙面碰撞循环中过滤掉带有 exit 标识的 Actor，防止胜利时玩家被弹飞
+        // 普通墙面碰撞循环
         foreach (string actorid in _level.ActorCollection.Keys)
         {
-            if (actorid == "apawn" || actorid.StartsWith("exit_"))
+            // ✨【微调点 1】：过滤掉我们 JSON 里的终点 id "aexit"，防止碰撞导致飞船倒退卡死
+            if (actorid == "apawn" || actorid == "aexit")
                 continue;
 
             Actor actor = _level.ActorCollection[actorid];
@@ -263,8 +260,16 @@ public class Window : GameWindow
 
         _shader = new Shader("Shaders/shader.vert", "Shaders/shader.frag");
         _shader.Use();
+        _dragonTexture = Texture.LoadFromFile("assets/greendragon.jpg");
+
 
         List<string> activeMeshes = _level.GetActiveMeshes(AssetCollection);
+
+        // 否则GetActiveMeshes里找不到dragon，导致显卡没为它编译VAO，屏幕上就画不出任何东西。
+        if (AssetCollection.ContainsKey("cube_dragon") && !activeMeshes.Contains("cube_dragon"))
+        {
+            activeMeshes.Add("cube_dragon");
+        }
 
         foreach (string meshid in activeMeshes)
         {
@@ -391,15 +396,21 @@ public class Window : GameWindow
             GL.StencilFunc(StencilFunction.Always, 1, 0xFF);
             GL.StencilMask(0xFF);
      
-            // 出口块(B)特殊渲染为绿色
-            if (actorid.StartsWith("exit_"))
+            if(actor.StaticMeshId == "cube_dragon")
             {
-                mesh.Draw(_shader, Option.Some(new Vector3(0.0f, 1.0f, 0.0f)));
+                _dragonTexture.Use(TextureUnit.Texture0);
+
+                _shader.SetInt("bTex", 1);
+
+                mesh.Draw(_shader, Option.None<Vector3>());
             }
             else
             {
+                _shader.SetInt("bTex", 0);
+
                 mesh.Draw(_shader, Option.None<Vector3>());
             }
+                
         }
 
         GL.StencilMask(0xFF);

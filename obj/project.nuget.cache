@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "+HLMfp08H+E=",
+  "dgSpecHash": "YuOvoWyV0PA=",
   "success": true,
   "projectFilePath": "C:\\Users\\linyouzi\\Desktop\\Materiales Clase 6-proyecto de partida con colision\\texturas_tutorial\\windrunner.csproj",
   "expectedPackageFiles": [
@@ -16,6 +16,7 @@
     "C:\\Users\\linyouzi\\.nuget\\packages\\opentk.windowing.desktop\\4.8.2\\opentk.windowing.desktop.4.8.2.nupkg.sha512",
     "C:\\Users\\linyouzi\\.nuget\\packages\\opentk.windowing.graphicslibraryframework\\4.8.2\\opentk.windowing.graphicslibraryframework.4.8.2.nupkg.sha512",
     "C:\\Users\\linyouzi\\.nuget\\packages\\optional\\4.0.0\\optional.4.0.0.nupkg.sha512",
+    "C:\\Users\\linyouzi\\.nuget\\packages\\stbimagesharp\\2.30.15\\stbimagesharp.2.30.15.nupkg.sha512",
     "C:\\Users\\linyouzi\\.nuget\\packages\\system.runtime.compilerservices.unsafe\\5.0.0\\system.runtime.compilerservices.unsafe.5.0.0.nupkg.sha512"
   ],
   "logs": []
