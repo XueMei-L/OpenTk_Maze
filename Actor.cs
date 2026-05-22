@@ -96,47 +96,43 @@ public void SetCollisionGeometry(Dictionary<string,Mesh> AssetCollection)
 
         }
 
-                if (CollisionGeometry.HasValue)
-                {
-                        CollisionGeometry geometry = CollisionGeometry.ValueOrFailure("Unexpected access to non assigned collision geometry");
-                        float[] location = CollisionMesh.collisionData.location;
-                        float[] rotation = CollisionMesh.collisionData.rotation;
-                        float[] scale = CollisionMesh.collisionData.scale;
-                        geometry.initialParameters.dimensions = new Vector3(scale[0], scale[1], scale[2]);
+        if (CollisionGeometry.HasValue)
+        {
+                CollisionGeometry geometry = CollisionGeometry.ValueOrFailure("Unexpected access to non assigned collision geometry");
+                float[] location = CollisionMesh.collisionData.location;
+                float[] rotation = CollisionMesh.collisionData.rotation;
+                float[] scale = CollisionMesh.collisionData.scale;
+                geometry.initialParameters.dimensions = new Vector3(scale[0], scale[1], scale[2]);
 
-                        //Matrix4 ModelScale=Matrix4.CreateScale(scale[0],scale[1], scale[2]);
-                        // Rotation> Its imported in Euler system Pitch, Yaw, Roll
-                        Matrix4 ModelRotYaw = Matrix4.CreateRotationY(rotation[1]);
-                        Vector4 uX = Vector4.UnitX * ModelRotYaw;
-                        Vector4 uZ = Vector4.UnitZ * ModelRotYaw;
+                //Matrix4 ModelScale=Matrix4.CreateScale(scale[0],scale[1], scale[2]);
+                // Rotation> Its imported in Euler system Pitch, Yaw, Roll
+                Matrix4 ModelRotYaw = Matrix4.CreateRotationY(rotation[1]);
+                Vector4 uX = Vector4.UnitX * ModelRotYaw;
+                Vector4 uZ = Vector4.UnitZ * ModelRotYaw;
 
-                        Matrix4 ModelRotPitch = Matrix4.CreateFromAxisAngle(uX.Xyz, rotation[0]);
-                        Vector4 uY = Vector4.UnitY * ModelRotPitch;
-                        uZ = Vector4.UnitZ * ModelRotPitch;
+                Matrix4 ModelRotPitch = Matrix4.CreateFromAxisAngle(uX.Xyz, rotation[0]);
+                Vector4 uY = Vector4.UnitY * ModelRotPitch;
+                uZ = Vector4.UnitZ * ModelRotPitch;
 
-                        Matrix4 ModelRotRoll = Matrix4.CreateFromAxisAngle(uZ.Xyz, rotation[2]);
-                        uX = uX * ModelRotRoll;
-                        uY = uY * ModelRotRoll;
-                        geometry.initialParameters.uX = uX.Xyz;
-                        geometry.initialParameters.uY = uY.Xyz;
-                        geometry.initialParameters.uZ = uZ.Xyz;
+                Matrix4 ModelRotRoll = Matrix4.CreateFromAxisAngle(uZ.Xyz, rotation[2]);
+                uX = uX * ModelRotRoll;
+                uY = uY * ModelRotRoll;
+                geometry.initialParameters.uX = uX.Xyz;
+                geometry.initialParameters.uY = uY.Xyz;
+                geometry.initialParameters.uZ = uZ.Xyz;
 
-                        geometry.initialParameters.center = new Vector3(location[0], location[1], location[2]);
+                geometry.initialParameters.center = new Vector3(location[0], location[1], location[2]);
 
-                        StartCollisionModel = Matrix4.CreateScale(scale[0], scale[1], scale[2]) * ModelRotYaw * ModelRotPitch * ModelRotRoll * Matrix4.CreateTranslation(location[0], location[1], location[2]);
-                        CollisionModel = StartCollisionModel;
+                StartCollisionModel = Matrix4.CreateScale(scale[0], scale[1], scale[2]) * ModelRotYaw * ModelRotPitch * ModelRotRoll * Matrix4.CreateTranslation(location[0], location[1], location[2]);
+                CollisionModel = StartCollisionModel;
 
-                }
-
-
+        }
 }
 
         public void UpdateCollisionModel()
         {
                 CollisionGeometry.ValueOrFailure("Unexpected empty CollisionGeometry").Transform(Model);
                 CollisionModel = StartCollisionModel * Model;
-}
-
-
+        }
 
 }

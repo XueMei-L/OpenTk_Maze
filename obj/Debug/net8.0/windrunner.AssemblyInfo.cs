@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("windrunner")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+324c55d4cd79707f51d857d7649d491ba5ad75fb")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+de4d1ea9d97fb2557195e662f3468de371300856")]
 [assembly: System.Reflection.AssemblyProductAttribute("windrunner")]
 [assembly: System.Reflection.AssemblyTitleAttribute("windrunner")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
