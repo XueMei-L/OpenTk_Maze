@@ -476,11 +476,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\linyouzi\\Desktop\\Materiales Clase 6-proyecto de partida con colision\\texturas_tutorial\\windrunner.csproj",
+      "projectUniqueName": "C:\\Users\\linyouzi\\Desktop\\texturas_tutorial\\windrunner.csproj",
       "projectName": "windrunner",
-      "projectPath": "C:\\Users\\linyouzi\\Desktop\\Materiales Clase 6-proyecto de partida con colision\\texturas_tutorial\\windrunner.csproj",
+      "projectPath": "C:\\Users\\linyouzi\\Desktop\\texturas_tutorial\\windrunner.csproj",
       "packagesPath": "C:\\Users\\linyouzi\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\linyouzi\\Desktop\\Materiales Clase 6-proyecto de partida con colision\\texturas_tutorial\\obj\\",
+      "outputPath": "C:\\Users\\linyouzi\\Desktop\\texturas_tutorial\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
